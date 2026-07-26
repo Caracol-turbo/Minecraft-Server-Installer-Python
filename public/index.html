@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.json">
+  <title>Minecraft Server Installer & Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+  <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between pb-6 mb-8 border-b border-slate-800 gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-900/30">
+          <i class="fa-solid fa-server text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight text-white">Minecraft Server Manager</h1>
+          <p class="text-sm text-slate-400">Instala, configura y gestiona tus servidores de Minecraft (Python Backend)</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button onclick="loadServers()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition flex items-center gap-2 border border-slate-700">
+          <i class="fa-solid fa-arrows-rotate"></i> Actualizar
+        </button>
+        <button onclick="openCreateModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-md shadow-emerald-900/20">
+          <i class="fa-solid fa-plus"></i> Crear Servidor
+        </button>
+      </div>
+    </header>
+
+    <!-- Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- Servers List (Left Column) -->
+      <div class="lg:col-span-1 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-slate-200">Servidores</h2>
+          <span id="serverCount" class="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full border border-slate-700">0</span>
+        </div>
+
+        <div id="serversList" class="space-y-3">
+          <!-- Dynamically loaded -->
+          <div class="p-4 bg-slate-800/50 border border-slate-700/50 rounded-xl text-center text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin mr-2"></i> Cargando servidores...
+          </div>
+        </div>
+
+        <!-- Playit.gg Tunnel Panel -->
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <i class="fa-solid fa-globe"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold text-white">Túnel Playit.gg</h3>
+                <p class="text-xs text-slate-400">Acceso público sin abrir puertos</p>
+              </div>
+            </div>
+            <span id="playitBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">Detenido</span>
+          </div>
+
+          <div id="playitActiveInfo" class="hidden space-y-3">
+            <div id="playitTunnelsContainer" class="p-3 bg-slate-900/80 border border-slate-700/60 rounded-xl space-y-2">
+              <span class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-link text-indigo-400"></i> Direcciones Públicas Activas:
+              </span>
+              <div id="playitTunnelsList" class="space-y-1 font-mono text-xs text-indigo-300">
+                <!-- Rendered dynamically -->
+              </div>
+            </div>
+
+            <div id="playitClaimContainer" class="hidden p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2">
+              <p class="text-xs text-amber-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-exclamation"></i> Reclamar agente en tu cuenta:
+              </p>
+              <a id="playitClaimBtn" href="#" target="_blank" class="block w-full text-center px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded-lg text-xs transition shadow-sm">
+                <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Vincular en Playit.gg
+              </a>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs text-slate-400">Clave Secreta (Secret Key)</label>
+              <button onclick="togglePlayitKeyInput()" class="text-xs text-indigo-400 hover:underline">Configurar Clave</button>
+            </div>
+            <div id="playitKeyGroup" class="hidden flex gap-2">
+              <input type="password" id="inputPlayitSecret" placeholder="Pega tu Secret Key de Playit..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500" />
+              <button onclick="savePlayitSecret()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium">Guardar</button>
+            </div>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="btnPlayitStart" onclick="startPlayit()" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-bolt"></i> Iniciar Túnel
+            </button>
+            <button id="btnPlayitStop" onclick="stopPlayit()" class="hidden flex-1 py-2 bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs rounded-xl transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-power-off"></i> Detener Túnel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Server Details / Console / Config (Right Column) -->
+      <div class="lg:col-span-2 space-y-6">
+        
+        <div id="noSelectionState" class="p-12 bg-slate-800/30 border border-slate-800 rounded-2xl text-center">
+          <i class="fa-solid fa-cube text-5xl text-slate-600 mb-4"></i>
+          <h3 class="text-xl font-medium text-slate-300">Selecciona un servidor</h3>
+          <p class="text-slate-500 max-w-sm mx-auto mt-2 text-sm">
+            Haz clic en un servidor de la lista o crea uno nuevo para gestionar sus opciones, propiedades y ejecuciones.
+          </p>
+        </div>
+
+        <div id="selectedServerState" class="hidden space-y-6">
+          
+          <!-- Server Header -->
+          <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-3">
+                <h2 id="selectedServerName" class="text-2xl font-bold text-white">NombreServidor</h2>
+                <span id="statusBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-700 text-slate-300">Inactivo</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1" id="serverPathInfo">Ubicación: /servers/...</p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button id="btnStart" onclick="startServer()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2">
+                <i class="fa-solid fa-play"></i> Iniciar
+              </button>
+              <button id="btnStop" onclick="stopServer()" class="hidden px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2">
+                <i class="fa-solid fa-square"></i> Detener
+              </button>
+              <button onclick="openConfigModal()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-sm font-medium transition border border-slate-600" title="Editar server.properties">
+                <i class="fa-solid fa-sliders"></i> Propiedades
+              </button>
+            </div>
+          </div>
+
+          <!-- Console / Logs -->
+          <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 font-mono text-sm">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+              <span class="text-xs text-slate-400 flex items-center gap-2">
+                <i class="fa-solid fa-terminal text-emerald-500"></i> Consol de Salida
+              </span>
+              <button onclick="fetchLogs()" class="text-xs text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-rotate-right"></i> Refrescar Logs
+              </button>
+            </div>
+            <pre id="consoleLogs" class="h-80 overflow-y-auto text-emerald-400/90 whitespace-pre-wrap text-xs leading-relaxed p-2 bg-slate-900/50 rounded-lg">Selecciona e inicia un servidor para ver sus logs en tiempo real.</pre>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Create Server Modal -->
+  <div id="createModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-4">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-download text-emerald-500"></i> Crear Nuevo Servidor
+        </h3>
+        <button onclick="closeCreateModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="createForm" onsubmit="handleCreateServer(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre de la carpeta del servidor</label>
+          <input type="text" id="inputServerName" required placeholder="ej. Survival-1.20" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Software de Servidor</label>
+          <select id="selectSoftware" onchange="onSoftwareChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+            <option value="vanilla">Minecraft Vanilla (Mojang)</option>
+            <option value="paper">PaperMC (Alto Rendimiento)</option>
+            <option value="purpur">Purpur (Súper Personalizable)</option>
+            <option value="fabric">Fabric (Mods/Ligero)</option>
+            <option value="forge">Minecraft Forge (Mods Clásicos)</option>
+            <option value="neoforge">NeoForge (Mods Modernos)</option>
+          </select>
+        </div>
+
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Versión del Juego</label>
+          <select id="selectVersion" onchange="onVersionChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+            <option value="">Cargando versiones...</option>
+          </select>
+        </div>
+
+        <div id="buildContainer" class="hidden">
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Compilacion / Build</label>
+          <select id="selectBuild" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+            <option value="">Cargando builds...</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">RAM asignada (Xmx)</label>
+          <input type="text" id="inputRam" value="2G" placeholder="ej. 2G, 4G, 1024M" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 text-sm focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
+          <button type="button" onclick="closeCreateModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium">Cancelar</button>
+          <button type="submit" id="btnSubmitCreate" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium flex items-center gap-2">
+            <i class="fa-solid fa-cloud-arrow-down"></i> Descargar e Instalar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Config Modal -->
+  <div id="configModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-amber-500"></i> Configurar server.properties
+        </h3>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <textarea id="configTextarea" class="w-full h-80 bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500 leading-relaxed"></textarea>
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" onclick="closeConfigModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm font-medium">Cancelar</button>
+        <button type="button" onclick="saveConfig()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentServer = null;
+    let logInterval = null;
+
+    async function loadServers() {
+      try {
+        const res = await fetch('/api/servers');
+        const servers = await res.json();
+        document.getElementById('serverCount').innerText = servers.length;
+
+        const container = document.getElementById('serversList');
+        if (servers.length === 0) {
+          container.innerHTML = `
+            <div class="p-6 bg-slate-800/30 border border-slate-800 rounded-xl text-center text-slate-400 text-sm">
+              No hay servidores instalados. Haz clic en "Crear Servidor" para comenzar.
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = servers.map(s => `
+          <div onclick="selectServer('${s.name}')" class="p-4 bg-slate-800 border ${currentServer === s.name ? 'border-emerald-500/70 bg-slate-800/90' : 'border-slate-700/60'} hover:border-slate-500 rounded-xl cursor-pointer transition flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-cube text-slate-400"></i>
+              <div>
+                <h4 class="font-semibold text-slate-100 text-sm">${s.name}</h4>
+                <p class="text-xs text-slate-400">${s.hasJar ? 'JAR listo' : 'Sin JAR'} • ${s.hasProps ? 'Propiedades ok' : 'Sin props'}</p>
+              </div>
+            </div>
+            ${s.isRunning ? '<span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" title="En ejecución"></span>' : ''}
+          </div>
+        `).join('');
+
+      } catch (e) {
+        console.error('Error al cargar servidores:', e);
+      }
+    }
+
+    function selectServer(name) {
+      currentServer = name;
+      document.getElementById('noSelectionState').classList.add('hidden');
+      document.getElementById('selectedServerState').classList.remove('hidden');
+      document.getElementById('selectedServerName').innerText = name;
+      document.getElementById('serverPathInfo').innerText = `Ubicación: /servers/${name}`;
+
+      loadServers();
+      fetchLogs();
+
+      if (logInterval) clearInterval(logInterval);
+      logInterval = setInterval(fetchLogs, 3000);
+    }
+
+    async function fetchLogs() {
+      if (!currentServer) return;
+      try {
+        const res = await fetch(`/api/servers/${currentServer}/logs`);
+        const data = await res.json();
+
+        const logsElem = document.getElementById('consoleLogs');
+        const statusBadge = document.getElementById('statusBadge');
+        const btnStart = document.getElementById('btnStart');
+        const btnStop = document.getElementById('btnStop');
+
+        if (data.isRunning) {
+          statusBadge.innerText = 'En ejecución';
+          statusBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+          btnStart.classList.add('hidden');
+          btnStop.classList.remove('hidden');
+        } else {
+          statusBadge.innerText = 'Inactivo';
+          statusBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-700 text-slate-300';
+          btnStart.classList.remove('hidden');
+          btnStop.classList.add('hidden');
+        }
+
+        if (data.logs && data.logs.length > 0) {
+          logsElem.innerText = data.logs.join('');
+          logsElem.scrollTop = logsElem.scrollHeight;
+        } else if (!data.isRunning) {
+          logsElem.innerText = 'El servidor no está ejecutándose. Haz clic en Iniciar para arrancar.';
+        }
+      } catch (e) {
+        console.error('Error logs:', e);
+      }
+    }
+
+    async function startServer() {
+      if (!currentServer) return;
+      try {
+        const res = await fetch(`/api/servers/${currentServer}/start`, { method: 'POST' });
+        const data = await res.json();
+        fetchLogs();
+        loadServers();
+      } catch (e) {
+        alert('Error al iniciar: ' + e);
+      }
+    }
+
+    async function stopServer() {
+      if (!currentServer) return;
+      try {
+        const res = await fetch(`/api/servers/${currentServer}/stop`, { method: 'POST' });
+        const data = await res.json();
+        fetchLogs();
+        loadServers();
+      } catch (e) {
+        alert('Error al detener: ' + e);
+      }
+    }
+
+    async function openConfigModal() {
+      if (!currentServer) return;
+      try {
+        const res = await fetch(`/api/servers/${currentServer}/properties`);
+        const data = await res.json();
+        document.getElementById('configTextarea').value = data.content || '# server.properties\nserver-port=25565';
+        document.getElementById('configModal').classList.remove('hidden');
+      } catch (e) {
+        alert('No se pudo cargar el archivo de propiedades.');
+      }
+    }
+
+    function closeConfigModal() {
+      document.getElementById('configModal').classList.add('hidden');
+    }
+
+    async function saveConfig() {
+      if (!currentServer) return;
+      const content = document.getElementById('configTextarea').value;
+      try {
+        const res = await fetch(`/api/servers/${currentServer}/properties`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        const data = await res.json();
+        alert(data.message || 'Configuración guardada.');
+        closeConfigModal();
+      } catch (e) {
+        alert('Error al guardar: ' + e);
+      }
+    }
+
+    // Modal Crear Servidor
+    function openCreateModal() {
+      document.getElementById('createModal').classList.remove('hidden');
+      onSoftwareChange();
+    }
+
+    function closeCreateModal() {
+      document.getElementById('createModal').classList.add('hidden');
+    }
+
+    async function onSoftwareChange() {
+      const sw = document.getElementById('selectSoftware').value;
+      const verSelect = document.getElementById('selectVersion');
+      const buildContainer = document.getElementById('buildContainer');
+
+      verSelect.innerHTML = '<option value="">Cargando versiones...</option>';
+      buildContainer.classList.add('hidden');
+
+      try {
+        const res = await fetch(`/api/versions/${sw}`);
+        const data = await res.json();
+
+        if (sw === 'vanilla' || sw === 'paper' || sw === 'purpur') {
+          const versions = Array.isArray(data) ? data.slice(0, 15) : [];
+          verSelect.innerHTML = versions.map(v => `<option value="${v}">${v}</option>`).join('');
+          if (sw === 'paper' || sw === 'purpur') {
+            onVersionChange();
+          }
+        } else if (sw === 'fabric') {
+          const gameVers = data.game_versions ? data.game_versions.slice(0, 10) : [];
+          verSelect.innerHTML = gameVers.map(v => `<option value="${v}">${v}</option>`).join('');
+        } else if (sw === 'forge') {
+          const versions = Array.isArray(data) ? data.slice(0, 20) : [];
+          verSelect.innerHTML = versions.map(v => `<option value="${v}">${v}</option>`).join('');
+          onVersionChange();
+        } else if (sw === 'neoforge') {
+          const versions = Array.isArray(data) ? data.slice(0, 25) : [];
+          verSelect.innerHTML = versions.map(v => `<option value="${v}">${v}</option>`).join('');
+        }
+      } catch (e) {
+        verSelect.innerHTML = '<option value="">Error al obtener versiones</option>';
+      }
+    }
+
+    async function onVersionChange() {
+      const sw = document.getElementById('selectSoftware').value;
+      const version = document.getElementById('selectVersion').value;
+      const buildContainer = document.getElementById('buildContainer');
+      const buildSelect = document.getElementById('selectBuild');
+
+      if ((sw === 'paper' || sw === 'purpur') && version) {
+        buildContainer.classList.remove('hidden');
+        buildSelect.innerHTML = '<option value="">Cargando builds...</option>';
+
+        try {
+          const res = await fetch(`/api/versions/${sw}?version=${version}`);
+          const builds = await res.json();
+          if (Array.isArray(builds) && builds.length > 0) {
+            const recent = builds.slice(-8).reverse();
+            buildSelect.innerHTML = recent.map(b => `<option value="${b}">${b}</option>`).join('');
+          } else {
+            buildSelect.innerHTML = '<option value="">Sin builds disponibles</option>';
+          }
+        } catch (e) {
+          buildSelect.innerHTML = '<option value="">Error al cargar builds</option>';
+        }
+      } else if (sw === 'forge' && version) {
+        buildContainer.classList.remove('hidden');
+        buildSelect.innerHTML = '<option value="">Cargando compilaciones de Forge...</option>';
+
+        try {
+          const res = await fetch(`/api/versions/forge?version=${version}`);
+          const builds = await res.json();
+          if (Array.isArray(builds) && builds.length > 0) {
+            buildSelect.innerHTML = builds.map(b => `<option value="${b.version}">${b.type.toUpperCase()} (${b.version})</option>`).join('');
+          } else {
+            buildSelect.innerHTML = '<option value="">Sin builds disponibles</option>';
+          }
+        } catch (e) {
+          buildSelect.innerHTML = '<option value="">Error al cargar compilaciones de Forge</option>';
+        }
+      } else {
+        buildContainer.classList.add('hidden');
+      }
+    }
+
+    async function handleCreateServer(e) {
+      e.preventDefault();
+      const serverName = document.getElementById('inputServerName').value.trim();
+      const software = document.getElementById('selectSoftware').value;
+      const version = document.getElementById('selectVersion').value;
+      const build = document.getElementById('selectBuild').value;
+      const ram = document.getElementById('inputRam').value.trim() || '2G';
+
+      const btn = document.getElementById('btnSubmitCreate');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Descargando e instalando...';
+
+      let extra = '';
+      if (software === 'paper' || software === 'purpur' || software === 'forge') {
+        extra = build;
+      }
+
+      try {
+        const res = await fetch('/api/servers/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serverName, software, version, extra, ram })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          alert('¡Servidor creado e instalado con éxito!');
+          closeCreateModal();
+          loadServers();
+          selectServer(serverName);
+        } else {
+          alert('Error: ' + (data.error || 'No se pudo crear el servidor.'));
+        }
+      } catch (err) {
+        alert('Error en la solicitud: ' + err);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Descargar e Instalar';
+      }
+    }
+
+    // --- PLAYIT.GG FUNCTIONS ---
+    function togglePlayitKeyInput() {
+      const grp = document.getElementById('playitKeyGroup');
+      grp.classList.toggle('hidden');
+    }
+
+    async function fetchPlayitStatus() {
+      try {
+        const res = await fetch('/api/playit/status');
+        const status = await res.json();
+
+        const badge = document.getElementById('playitBadge');
+        const btnStart = document.getElementById('btnPlayitStart');
+        const btnStop = document.getElementById('btnPlayitStop');
+        const activeInfo = document.getElementById('playitActiveInfo');
+        const tunnelsList = document.getElementById('playitTunnelsList');
+        const claimContainer = document.getElementById('playitClaimContainer');
+        const claimBtn = document.getElementById('playitClaimBtn');
+        const secretInput = document.getElementById('inputPlayitSecret');
+
+        if (status.secret_key) {
+          secretInput.value = status.secret_key;
+        }
+
+        if (status.running) {
+          badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          badge.textContent = 'Activo';
+          btnStart.classList.add('hidden');
+          btnStop.classList.remove('hidden');
+          activeInfo.classList.remove('hidden');
+
+          if (status.tunnels && status.tunnels.length > 0) {
+            tunnelsList.innerHTML = status.tunnels.map(t => `
+              <div class="flex items-center justify-between p-1.5 bg-slate-950/60 rounded border border-slate-800">
+                <span class="truncate mr-2 text-indigo-300 font-semibold">${t}</span>
+                <button onclick="navigator.clipboard.writeText('${t}'); alert('¡Copiado!');" class="text-xs text-slate-400 hover:text-white px-2 py-0.5 bg-slate-800 rounded">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </div>
+            `).join('');
+          } else {
+            tunnelsList.innerHTML = '<span class="text-slate-400 italic">Estableciendo conexión...</span>';
+          }
+
+          if (status.claim_url) {
+            claimContainer.classList.remove('hidden');
+            claimBtn.href = status.claim_url;
+          } else {
+            claimContainer.classList.add('hidden');
+          }
+        } else {
+          badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20';
+          badge.textContent = 'Detenido';
+          btnStart.classList.remove('hidden');
+          btnStop.classList.add('hidden');
+          activeInfo.classList.add('hidden');
+        }
+      } catch (e) {
+        console.error('Error al obtener estado de Playit:', e);
+      }
+    }
+
+    async function startPlayit() {
+      const btn = document.getElementById('btnPlayitStart');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Iniciando...';
+      try {
+        const secretKey = document.getElementById('inputPlayitSecret').value.trim();
+        const res = await fetch('/api/playit/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secretKey })
+        });
+        const data = await res.json();
+        fetchPlayitStatus();
+      } catch (e) {
+        alert('Error al iniciar Playit: ' + e);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i> Iniciar Túnel';
+      }
+    }
+
+    async function stopPlayit() {
+      const btn = document.getElementById('btnPlayitStop');
+      btn.disabled = true;
+      try {
+        await fetch('/api/playit/stop', { method: 'POST' });
+        fetchPlayitStatus();
+      } catch (e) {
+        alert('Error al detener Playit: ' + e);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function savePlayitSecret() {
+      const secretKey = document.getElementById('inputPlayitSecret').value.trim();
+      try {
+        await fetch('/api/playit/secret', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secretKey })
+        });
+        alert('Clave secreta guardada correctamente.');
+        document.getElementById('playitKeyGroup').classList.add('hidden');
+        fetchPlayitStatus();
+      } catch (e) {
+        alert('Error al guardar clave secreta: ' + e);
+      }
+    }
+
+    // Inicialización
+    loadServers();
+    fetchPlayitStatus();
+    setInterval(fetchPlayitStatus, 5000);
+  </script>
+</body>
+</html>

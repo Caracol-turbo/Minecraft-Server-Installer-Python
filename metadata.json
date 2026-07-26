@@ -1,0 +1,8 @@
+{
+  "name": "Minecraft Server Installer",
+  "description": "Herramienta modular en Python/Node.js para descargar, configurar y gestionar servidores de Minecraft (Vanilla, Paper, Purpur, Fabric, Forge, NeoForge) con túneles Playit.gg.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
